@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UrbanFlow Mobility a.s. – Dispečink 24/7 (SD vs. ABM)</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <span class="badge">FSMS • Domácí úkol 2: Jedna firma, dva pohledy</span>
+      <h1>UrbanFlow Mobility a.s. – Simulace dispečinku 24/7 (SD vs. ABM)</h1>
+      <p>Porovnání pohledu shora (systémová dynamika) a pohledu zdola (agentové modelování) na frontu tiketů a odchod řidičů během 48 hodin.</p>
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>1. Rozhodovací otázka, hranice a schémata modelů</h2>
+      <div class="question-box">
+        <strong>Rozhodovací otázka:</strong> Omezí posílení dispečinku (z 10 na 14 operátorů) frontu nevyřízených tiketů a odchod nespokojených řidičů při skokovém nárůstu poptávky (1,8×), nebo je účinnější stabilizovat IoT závory (−30 % poruch)?
+        <br />
+        <strong>Hranice systému (48 hodin):</strong> Uvnitř modelu jsou příchody problémů od řidičů, kapacita operátorů 24/7, opakovaná volání při přetížení a odchod nespokojených řidičů. Mimo model zůstává dlouhodobá B2B akvizice parkovišť (měsíce) a účetnictví provizí.
+      </div>
+
+      <div class="grid-2" style="margin-top: 1rem;">
+        <div>
+          <h3>Model shora: Systémová dynamika (SD)</h3>
+          <svg class="schema-svg" viewBox="0 0 560 200" aria-label="Schéma systémové dynamiky">
+            <defs>
+              <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L8,3 z" fill="#334155" />
+              </marker>
+              <marker id="arrow-info" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L8,3 z" fill="#2563eb" />
+              </marker>
+            </defs>
+            <!-- Přítok -->
+            <line x1="25" y1="70" x2="155" y2="70" stroke="#334155" stroke-width="2.5" marker-end="url(#arrow)" />
+            <text x="85" y="55" text-anchor="middle" font-size="11" fill="#0f172a">Přítok tiketů</text>
+            <text x="85" y="88" text-anchor="middle" font-size="10" fill="#475569">(závady + duplicity)</text>
+
+            <!-- Akumulace Q -->
+            <rect x="160" y="40" width="145" height="60" rx="6" fill="#dbeafe" stroke="#2563eb" stroke-width="2" />
+            <text x="232" y="66" text-anchor="middle" font-size="12" font-weight="bold" fill="#1e3a8a">Nevyřešené tikety</text>
+            <text x="232" y="84" text-anchor="middle" font-size="11" fill="#1e40af">Q(t) [ks]</text>
+
+            <!-- Odtok vyřízeno -->
+            <line x1="305" y1="70" x2="435" y2="70" stroke="#334155" stroke-width="2.5" marker-end="url(#arrow)" />
+            <text x="370" y="55" text-anchor="middle" font-size="11" fill="#0f172a">Vyřízení</text>
+            <text x="370" y="88" text-anchor="middle" font-size="10" fill="#475569">(max. kapacita oper.)</text>
+
+            <!-- Odchod řidičů -->
+            <line x1="232" y1="100" x2="232" y2="145" stroke="#dc2626" stroke-width="2" marker-end="url(#arrow)" />
+            <text x="295" y="128" font-size="10" fill="#b91c1c">Odchod při čekání</text>
+
+            <rect x="160" y="148" width="145" height="42" rx="6" fill="#fee2e2" stroke="#dc2626" stroke-width="1.5" />
+            <text x="232" y="173" text-anchor="middle" font-size="11" font-weight="bold" fill="#991b1b">Ztracení řidiči L(t)</text>
+
+            <!-- Zpětnovazební smyčka opakovaných volání -->
+            <path d="M 210 40 C 180 12, 110 12, 90 48" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-info)" />
+            <text x="150" y="16" text-anchor="middle" font-size="10" fill="#2563eb">Opakovaná volání (Q &gt; 20)</text>
+          </svg>
+        </div>
+
+        <div>
+          <h3>Model zdola: Agentové modelování (ABM)</h3>
+          <ul class="muted" style="margin-top: 0.4rem; padding-left: 1.2rem;">
+            <li><strong>Agenti – Řidiči / tikety:</strong> Heterogenní trpělivost – <em>spěchající</em> (35 %, nižší trpělivost a vyšší sklon volat znovu) vs. <em>běžný</em> (65 %), proměnná náročnost problému (0,75–1,35×).</li>
+            <li><strong>Agenti – Operátoři (N ks):</strong> Mix seniorů (rychlost 0,85×) a standardních operátorů (1,05×), stav <code>idle</code> / <code>busy</code>.</li>
+            <li><strong>Pořadí vyhodnocení (krok = 1 min):</strong> (1) Příchod nových tiketů (Poisson), (2) Posun rozpracované práce operátorů, (3) Kontrola čekajících řidičů (opakované volání / odchod po vyčerpání trpělivosti), (4) Přiřazení volných operátorů (FIFO).</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2. Interaktivní simulace &amp; Scénáře „Co kdyby…?“</h2>
+      <div class="scenario-bar" id="scenarioBar"></div>
+
+      <div class="controls-grid">
+        <div class="control">
+          <label for="inpOperators">Počet operátorů [os.]</label>
+          <input id="inpOperators" type="number" min="0" max="40" step="1" value="10" />
+        </div>
+        <div class="control">
+          <label for="inpDemand">Násobitel špičky (12–24 h)</label>
+          <input id="inpDemand" type="number" min="0.5" max="4" step="0.1" value="1.0" />
+        </div>
+        <div class="control">
+          <label for="inpFailure">Faktor poruchovosti závor</label>
+          <input id="inpFailure" type="number" min="0.2" max="2.5" step="0.1" value="1.0" />
+        </div>
+        <div class="control">
+          <label for="inpServiceTime">Doba vyřízení tiketu [min]</label>
+          <input id="inpServiceTime" type="number" min="3" max="45" step="1" value="12" />
+        </div>
+        <div class="control">
+          <label for="inpPatience">Střední trpělivost [min]</label>
+          <input id="inpPatience" type="number" min="5" max="90" step="1" value="25" />
+        </div>
+        <div class="control">
+          <label for="inpDt">Časový krok SD dt [hod]</label>
+          <select id="inpDt">
+            <option value="0.05" selected>0.05 h (3 min)</option>
+            <option value="0.01">0.01 h (0,6 min)</option>
+            <option value="0.1">0.10 h (6 min)</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="inpSeed">ABM počáteční Seed</label>
+          <input id="inpSeed" type="number" min="1" max="99999" step="1" value="42" />
+        </div>
+        <div class="control">
+          <label for="inpRuns">Počet ABM běhů (seedy)</label>
+          <input id="inpRuns" type="number" min="1" max="30" step="1" value="10" />
+        </div>
+      </div>
+
+      <div style="margin-top: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <button id="btnRun" class="primary">Spustit oba modely s těmito parametry</button>
+        <button id="btnCompareAll">Přepočítat srovnávací tabulku všech 4 scénářů</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>3. Výsledky v čase (SD vs. ABM průměr a rozpětí min–max)</h2>
+      <div class="kpi-grid" id="kpiGrid" style="margin-bottom: 1rem;"></div>
+
+      <div class="legend">
+        <div class="legend-item"><span class="swatch" style="background: var(--sd-color);"></span> Model shora: Systémová dynamika (SD)</div>
+        <div class="legend-item"><span class="swatch" style="background: var(--abm-color);"></span> Model zdola: ABM (průměr ze seedů)</div>
+        <div class="legend-item"><span class="swatch band"></span> ABM rozpětí (min – max)</div>
+      </div>
+
+      <div class="grid-2">
+        <div>
+          <h3>Nevyřešené tikety ve frontě Q(t)</h3>
+          <svg id="chartQueue" class="chart"></svg>
+        </div>
+        <div>
+          <h3>Kumulovaný počet ztracených řidičů L(t)</h3>
+          <svg id="chartLost" class="chart"></svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>4. Srovnání všech scénářů „Co kdyby…?“</h2>
+      <p class="muted" style="margin-top: 0;">Hodnoty pro ABM jsou průměrem a rozpětím (min–max) ze zvoleného počtu běhů (výchozí 10×).</p>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Scénář</th>
+              <th>SD: Max. fronta</th>
+              <th>SD: Ztracení řidiči</th>
+              <th>ABM: Max. fronta (průměr / min–max)</th>
+              <th>ABM: Ztracení řidiči (průměr / min–max)</th>
+              <th>ABM: Prům. čekání</th>
+            </tr>
+          </thead>
+          <tbody id="compareTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>5. Trasování konkrétního agenta (ABM vysvětlení zdola)</h2>
+      <p class="muted" style="margin-top: 0;">Vyberte konkrétní tiket z prvního běhu ABM a sledujte jeho individuální rozhodování minuta po minutě:</p>
+      <div style="margin-bottom: 0.75rem;">
+        <select id="agentSelect" style="max-width: 100%; padding: 0.45rem; border-radius: 6px; border: 1px solid var(--border);"></select>
+      </div>
+      <div id="agentTrace" class="trace-box"></div>
+    </section>
+
+    <section class="card">
+      <h2>6. Automatické testy obou modelů</h2>
+      <div style="margin-bottom: 0.75rem;">
+        <button id="btnRunTests">Znovu spustit všechny testy</button>
+      </div>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Test</th>
+              <th>Očekávání</th>
+              <th>Skutečnost</th>
+              <th>Závěr</th>
+              <th>Stav</th>
+            </tr>
+          </thead>
+          <tbody id="testsTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="sd-model.js"></script>
+  <script src="abm-model.js"></script>
+  <script src="tests.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
